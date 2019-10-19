@@ -1,0 +1,98 @@
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Data;
+using System.Data.SqlClient;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Algorithm
+{
+    public interface ISqlQueryRepository
+    {
+        /// <summary>
+        ///This Interface Handles Queries
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        /// <param name="dbType"></param>
+        /// <returns></returns>
+        SqlParameter CreateParameter(string name, object value, DbType dbType);
+        object GetScalarValue(string commandText, CommandType commandType, SqlParameter[] parameters = null);
+    }
+    public class SqlQueryRepository : ISqlQueryRepository
+    {
+        /// <summary>
+        /// ADO.NET Read Only Repository. 
+        /// </summary>
+        private string ConnectionString { get; set; }
+        public SqlQueryRepository()
+        {
+            //get connection from config file. makes these properties configurable.
+            ConnectionString = ConfigurationManager.ConnectionStrings["connection"]?.ConnectionString;
+        }
+        public object GetScalarValue(string commandText, CommandType commandType, SqlParameter[] parameters = null)
+        {
+
+	    //using helps release unmanaged resources
+            using (SqlConnection connection = new SqlConnection(ConnectionString))
+            {
+                connection.Open(); //uses connection pooling
+
+                using (var command = new SqlCommand(commandText, connection))
+                {
+                    command.CommandType = commandType;
+                    if (parameters != null)
+                    {
+                        foreach (var parameter in parameters)
+                        {
+                            command.Parameters.Add(parameter);
+
+                        }
+                    }
+
+                    return  command.ExecuteScalar(); //ExecuteScalarAsync can be used to make calls more responsive
+
+                } //disposes sqlcommand here
+
+            } //closes connection and disposes sql connection. connection returns to the pool for future use
+        }
+
+        public SqlParameter CreateParameter(string name, object value, DbType dbType)
+        {
+            return new SqlParameter
+            {
+                DbType = dbType,
+                ParameterName = name,
+                Value = value
+
+            };
+        }              
+
+    }
+
+    public class LeadCountService
+    {
+        private readonly ISqlQueryRepository _repository;
+        public LeadCountService(ISqlQueryRepository repository)
+        {
+            this._repository = repository;
+        }
+        public  long GetCountForLocByStatus(int locationId, string status)
+        {
+            var query = "SELECT COUNT(LOCATIONID) AS COUNT FROM TBLLEADS WHERE LOCATIONID = @LOCATIONID AND LEADSTATUS = @STATUS";
+            var parameters = new List<SqlParameter>();
+
+            //add parameters to avoid injection
+            parameters.Add(_repository.CreateParameter("@LOCATIONID", locationId, DbType.Int32));
+            parameters.Add(_repository.CreateParameter("@STATUS", status, DbType.String));
+
+            //call repository 
+            var value = (int) _repository.GetScalarValue(query, CommandType.Text, parameters.ToArray());
+            
+            return value;
+
+        }
+
+    }
+}

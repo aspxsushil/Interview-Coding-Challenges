@@ -1,0 +1,32 @@
+
+        public void ModifyDictionaryXConditionally(Dictionary<string, int> x, Dictionary<string, int> y)
+        {
+            //make a copy of x to avoid invalidating the iterator. Below Comparer makes case insensitive dictionary and Ordinal improves lookup
+            Dictionary<string, int> xCopy = new Dictionary<string, int>(x, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var xcopyitem in xCopy)
+            {
+                //try get value for the key 
+                if (y.TryGetValue(xcopyitem.Key, out int value))
+                {
+                    //1.Key exists. Add values
+                    x[xcopyitem.Key] = x[xcopyitem.Key] + value;
+
+
+                    //remove common record to shorten no.of items in y
+                    y.Remove(xcopyitem.Key);
+                }
+                else
+                {
+                    //2.Key does not exist. Set Value to 0
+                    x[xcopyitem.Key] = 0;
+                }
+
+            }
+
+            //3.add non existing items in x.
+            foreach (var yitem in y)
+            {
+                x.Add(yitem.Key, yitem.Value);
+            }
+        }
